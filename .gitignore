@@ -2,3 +2,23 @@ config.json
 
 *.db
 *.index
+pdf_text.txt
+
+# CMake / Build outputs
+/build/
+/out/
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.sln
+*.vcxproj
+*.vcxproj.filters
