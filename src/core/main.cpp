@@ -16,20 +16,6 @@ int main() {
     std::string testPath = "./src"; // Scanning the src folder as a test
     indexer.scanDirectory(testPath);
     
-    // Test Phase: Run a quick search
-    std::string query = "main";
-    std::cout << "\nExecuting Quick Search for: '" << query << "'" << std::endl;
-    
-    auto start_time = std::chrono::high_resolution_clock::now();
-    auto results = db.quickSearch(query);
-    auto end_time = std::chrono::high_resolution_clock::now();
-    
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-    
-    std::cout << "Found " << results.size() << " results in " << duration.count() << "ms:" << std::endl;
-    for (const auto& res : results) {
-        std::cout << " - [" << res.last_modified << "] " << res.file_name << " (" << res.file_path << ")" << std::endl;
-    }
-    
+    std::cout << "Initialization and Indexing complete." << std::endl;
     return 0;
 }
