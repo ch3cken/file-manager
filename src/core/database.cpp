@@ -22,7 +22,10 @@ void DatabaseManager::initializeTables() {
             file_id INTEGER PRIMARY KEY AUTOINCREMENT,
             file_name TEXT,
             file_path TEXT UNIQUE,
-            last_modified DATETIME
+            extension TEXT,
+            created_date DATETIME,
+            last_modified DATETIME,
+            embedding BLOB
         );
         CREATE TABLE IF NOT EXISTS tags (
             tag_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -43,8 +46,8 @@ void DatabaseManager::initializeTables() {
     }
 }
 
-bool DatabaseManager::insertFile(const std::string& name, const std::string& path, const std::string& modified_date) {
-    const char* sql = "INSERT OR REPLACE INTO files (file_name, file_path, last_modified) VALUES (?, ?, ?);";
+bool DatabaseManager::insertFile(const FileRecord& record) {
+    const char* sql = "INSERT OR REPLACE INTO files (file_name, file_path, extension, created_date, last_modified, embedding) VALUES (?, ?, ?, ?, ?, ?);";
     sqlite3_stmt* stmt;
     
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
@@ -52,9 +55,28 @@ bool DatabaseManager::insertFile(const std::string& name, const std::string& pat
         return false;
     }
     
-    sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 2, path.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 3, modified_date.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 1, record.file_name.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, record.file_path.c_str(), -1, SQLITE_TRANSIENT);
+    
+    if (record.extension.empty()) {
+        sqlite3_bind_null(stmt, 3);
+    } else {
+        sqlite3_bind_text(stmt, 3, record.extension.c_str(), -1, SQLITE_TRANSIENT);
+    }
+    
+    if (record.created_date.empty()) {
+        sqlite3_bind_null(stmt, 4);
+    } else {
+        sqlite3_bind_text(stmt, 4, record.created_date.c_str(), -1, SQLITE_TRANSIENT);
+    }
+    
+    sqlite3_bind_text(stmt, 5, record.last_modified.c_str(), -1, SQLITE_TRANSIENT);
+    
+    if (record.embedding.empty()) {
+        sqlite3_bind_null(stmt, 6);
+    } else {
+        sqlite3_bind_blob(stmt, 6, record.embedding.data(), record.embedding.size() * sizeof(float), SQLITE_TRANSIENT);
+    }
     
     bool success = (sqlite3_step(stmt) == SQLITE_DONE);
     sqlite3_finalize(stmt);
@@ -82,7 +104,7 @@ std::vector<FileRecord> DatabaseManager::quickSearch(const std::string& keyword)
     
     // Quick Search matches either the file_name or any tags associated with the file
     const char* sql = R"(
-        SELECT DISTINCT f.file_id, f.file_name, f.file_path, f.last_modified 
+        SELECT DISTINCT f.file_id, f.file_name, f.file_path, f.extension, f.created_date, f.last_modified 
         FROM files f 
         LEFT JOIN tags t ON f.file_id = t.file_id 
         WHERE f.file_name LIKE ? OR t.tag_name LIKE ?
@@ -104,7 +126,17 @@ std::vector<FileRecord> DatabaseManager::quickSearch(const std::string& keyword)
         record.file_id = sqlite3_column_int(stmt, 0);
         record.file_name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
         record.file_path = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
-        record.last_modified = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+        
+        const char* ext = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+        if (ext) record.extension = ext;
+        
+        const char* created = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
+        if (created) record.created_date = created;
+        
+        record.last_modified = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
+        
+        // Note: We don't fetch embeddings in Quick Search to save memory/time.
+        
         results.push_back(record);
     }
     
