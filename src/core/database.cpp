@@ -17,6 +17,9 @@ DatabaseManager::~DatabaseManager() {
 }
 
 void DatabaseManager::initializeTables() {
+    sqlite3_exec(db, "PRAGMA foreign_keys = ON;", 0, 0, nullptr);
+    sqlite3_exec(db, "PRAGMA journal_mode=WAL;", 0, 0, nullptr);
+
     const char* schema = R"(
         CREATE TABLE IF NOT EXISTS files (
             file_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -70,7 +73,11 @@ bool DatabaseManager::insertFile(const FileRecord& record) {
         sqlite3_bind_text(stmt, 4, record.created_date.c_str(), -1, SQLITE_TRANSIENT);
     }
     
-    sqlite3_bind_text(stmt, 5, record.last_modified.c_str(), -1, SQLITE_TRANSIENT);
+    if (record.last_modified.empty()) {
+        sqlite3_bind_null(stmt, 5);
+    } else {
+        sqlite3_bind_text(stmt, 5, record.last_modified.c_str(), -1, SQLITE_TRANSIENT);
+    }
     
     if (record.embedding.empty()) {
         sqlite3_bind_null(stmt, 6);
@@ -98,4 +105,4 @@ bool DatabaseManager::addTagToFile(int file_id, const std::string& tag) {
     sqlite3_finalize(stmt);
     return success;
 }
-
+

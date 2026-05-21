@@ -38,7 +38,8 @@ std::vector<FileRecord> QuickSearch::search(const std::string& keyword) {
         const char* created = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
         if (created) record.created_date = created;
         
-        record.last_modified = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
+        const char* lm = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
+        if (lm) record.last_modified = lm;
         
         results.push_back(record);
     }

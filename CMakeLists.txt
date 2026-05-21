@@ -7,12 +7,49 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Find SQLite3 package provided by vcpkg
 find_package(unofficial-sqlite3 CONFIG REQUIRED)
 
-# Core application (Database setup and Indexing)
-add_executable(file_manager_core src/core/main.cpp src/core/database.cpp src/core/indexer.cpp)
+# ─── Core application ────────────────────────────────────────────────────────
+add_executable(file_manager_core
+    src/core/main.cpp
+    src/core/database.cpp
+    src/core/indexer.cpp
+    src/core/usn_journal.cpp
+)
 target_include_directories(file_manager_core PRIVATE include)
 target_link_libraries(file_manager_core PRIVATE unofficial::sqlite3::sqlite3)
 
-# Test executable for Quick Search
-add_executable(test_quick_search src/search/test.cpp src/core/database.cpp src/search/quick_search.cpp)
+# ─── Test: Database (issues #2, #3, #4) ──────────────────────────────────────
+add_executable(test_database
+    tests/test_database.cpp
+    src/core/database.cpp
+)
+target_include_directories(test_database PRIVATE include)
+target_link_libraries(test_database PRIVATE unofficial::sqlite3::sqlite3)
+
+# ─── Test: Quick Search (issues #19, #20, #21) ───────────────────────────────
+add_executable(test_quick_search
+    tests/test_quick_search.cpp
+    src/core/database.cpp
+    src/search/quick_search.cpp
+)
 target_include_directories(test_quick_search PRIVATE include)
 target_link_libraries(test_quick_search PRIVATE unofficial::sqlite3::sqlite3)
+
+# ─── Test: Indexer (issues #7, #8, #23) ─────────────────────────────────────
+add_executable(test_indexer
+    tests/test_indexer.cpp
+    src/core/database.cpp
+    src/core/indexer.cpp
+    src/core/usn_journal.cpp
+)
+target_include_directories(test_indexer PRIVATE include)
+target_link_libraries(test_indexer PRIVATE unofficial::sqlite3::sqlite3)
+
+# ─── Test: USN Journal (issues #10–#18) ──────────────────────────────────────
+add_executable(test_usn_journal
+    tests/test_usn_journal.cpp
+    src/core/database.cpp
+    src/core/indexer.cpp
+    src/core/usn_journal.cpp
+)
+target_include_directories(test_usn_journal PRIVATE include)
+target_link_libraries(test_usn_journal PRIVATE unofficial::sqlite3::sqlite3)
