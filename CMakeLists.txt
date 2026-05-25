@@ -6,6 +6,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Find SQLite3 package provided by vcpkg
 find_package(unofficial-sqlite3 CONFIG REQUIRED)
+find_package(onnxruntime CONFIG REQUIRED)
+
+enable_testing()
 
 # ─── Core application ────────────────────────────────────────────────────────
 add_executable(file_manager_core
@@ -30,9 +33,10 @@ add_executable(test_quick_search
     tests/test_quick_search.cpp
     src/core/database.cpp
     src/search/quick_search.cpp
+    src/search/embedder.cpp
 )
 target_include_directories(test_quick_search PRIVATE include)
-target_link_libraries(test_quick_search PRIVATE unofficial::sqlite3::sqlite3)
+target_link_libraries(test_quick_search PRIVATE unofficial::sqlite3::sqlite3 onnxruntime::onnxruntime)
 
 # ─── Test: Indexer (issues #7, #8, #23) ─────────────────────────────────────
 add_executable(test_indexer
@@ -53,3 +57,12 @@ add_executable(test_usn_journal
 )
 target_include_directories(test_usn_journal PRIVATE include)
 target_link_libraries(test_usn_journal PRIVATE unofficial::sqlite3::sqlite3)
+
+# ─── Test: NLP Embedder (Antonio) ────────────────────────────────────────────
+add_executable(test_embedder
+    tests/test_embedder.cpp
+    src/search/embedder.cpp
+)
+target_include_directories(test_embedder PRIVATE include)
+target_link_libraries(test_embedder PRIVATE onnxruntime::onnxruntime)
+add_test(NAME EmbedderTest COMMAND test_embedder)
