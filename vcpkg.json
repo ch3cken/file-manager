@@ -4,6 +4,10 @@
     "dependencies": [
         "onnxruntime",
         "eigen3",
-        "sqlite3"
+        "sqlite3",
+        "icu",
+        "libzip",
+        "pugixml",
+        "poppler"
     ]
 }

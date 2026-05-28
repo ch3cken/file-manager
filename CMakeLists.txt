@@ -4,11 +4,30 @@ project(FileManager CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Find SQLite3 package provided by vcpkg
+# Dependencies provided by vcpkg.
 find_package(unofficial-sqlite3 CONFIG REQUIRED)
 find_package(onnxruntime CONFIG REQUIRED)
+find_package(ICU REQUIRED COMPONENTS uc i18n)
+find_package(libzip CONFIG REQUIRED)
+find_package(PkgConfig REQUIRED)
+find_package(pugixml CONFIG REQUIRED)
+
+pkg_check_modules(POPPLER_CPP REQUIRED IMPORTED_TARGET poppler-cpp)
 
 enable_testing()
+
+# ─── Header-only categorization module ──────────────────────────────────────
+add_library(file_manager_categorization INTERFACE)
+add_library(file_manager::categorization ALIAS file_manager_categorization)
+target_include_directories(file_manager_categorization INTERFACE include)
+target_link_libraries(file_manager_categorization INTERFACE
+    unofficial::sqlite3::sqlite3
+    ICU::uc
+    ICU::i18n
+    libzip::zip
+    PkgConfig::POPPLER_CPP
+    pugixml::pugixml
+)
 
 # ─── Core application ────────────────────────────────────────────────────────
 add_executable(file_manager_core
