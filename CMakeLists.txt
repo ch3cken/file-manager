@@ -85,3 +85,10 @@ add_executable(test_embedder
 target_include_directories(test_embedder PRIVATE include)
 target_link_libraries(test_embedder PRIVATE onnxruntime::onnxruntime)
 add_test(NAME EmbedderTest COMMAND test_embedder)
+
+# ─── Test: Categorization ───────────────────────────────────────────────────
+add_executable(test_categorization
+    tests/test_categorization.cpp
+)
+target_link_libraries(test_categorization PRIVATE file_manager::categorization)
+add_test(NAME CategorizationTest COMMAND test_categorization)
