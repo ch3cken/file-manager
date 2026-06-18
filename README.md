@@ -71,6 +71,21 @@ Responsible for initializing the database schema, running the initial static dir
 > **Note:** The USN Journal listener requires **Administrator privileges** to open the NTFS volume handle (`\\.\C:`). If run without admin rights, the engine automatically falls back to the static scanner and logs:
 > `[USN Journal] Real-time sync disabled. Falling back to static scanner.`
 
+**Smart Search CLI (`smart_search_cli.exe`)**:
+Indexes a directory with local embeddings, stores them in `files.embedding`, then ranks files by cosine similarity to a user prompt. The current model is `sentence-transformers/all-MiniLM-L6-v2` exported to ONNX, using `models/all-MiniLM-L6-v2.onnx` and `models/vocab.txt`.
+
+```bash
+.\build\Debug\smart_search_cli.exe --db smart_search.db --index "C:\path\to\folder" --prompt "machine learning embeddings" --top 5
+```
+
+After the database has embeddings, you can search it again without re-indexing:
+
+```bash
+.\build\Debug\smart_search_cli.exe --db smart_search.db --prompt "travel plans from Seoul"
+```
+
+Text files are embedded from content. Files that cannot be read as UTF-8 text fall back to an embedding built from filename, extension, and path, so the Smart Search database can still contain usable vectors for binary files.
+
 ---
 
 ## Testing
@@ -83,6 +98,8 @@ All test executables write their own temporary SQLite databases (e.g., `test_dat
 |---|---|---|
 | `test_database.exe` | DB init, WAL mode, foreign keys, insertFile, null fields, cascade delete, upsert | No |
 | `test_quick_search.exe` | Filename search, tag search, no-results, null `last_modified` crash fix, DISTINCT | No |
+| `test_smart_search.exe` | Cosine ranking over stored embeddings, incompatible-vector skip, top-K limit | No |
+| `test_embedder.exe` | Embedder API validation and model option checks | No |
 | `test_indexer.exe` | `formatFileTime` year correctness, absolute paths, invalid path handling | No |
 | `test_usn_journal.exe` | Volume path construction, reason flag logic, modify events, bounds guard, USN type | No (probes path only) |
 
@@ -93,6 +110,8 @@ Run each executable from the **project root** (the directory containing `CMakeLi
 ```bash
 .\build\Debug\test_database.exe
 .\build\Debug\test_quick_search.exe
+.\build\Debug\test_smart_search.exe
+.\build\Debug\test_embedder.exe
 .\build\Debug\test_indexer.exe
 .\build\Debug\test_usn_journal.exe
 ```

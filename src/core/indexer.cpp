@@ -1,4 +1,5 @@
 #include "core/indexer.h"
+#include "core/path_utils.h"
 #include "core/usn_journal.h"
 #include <filesystem>
 #include <iostream>
@@ -10,11 +11,35 @@
 
 namespace fs = std::filesystem;
 
-Indexer::Indexer(DatabaseManager& database, const std::string& driveLetter)
+std::string formatFileTime(const fs::file_time_type& ftime);
+
+namespace {
+FileRecord createFileRecord(const fs::directory_entry& entry) {
+    FileRecord record;
+    record.file_path = pathutil::toUtf8(entry.path());
+    record.file_name = pathutil::toUtf8(entry.path().filename());
+
+    if (entry.path().has_extension()) {
+        record.extension = pathutil::toUtf8(entry.path().extension());
+    }
+
+    try {
+        record.last_modified = formatFileTime(entry.last_write_time());
+    } catch (const std::exception&) {
+        record.last_modified = "1970-01-01 00:00:00";
+    }
+
+    return record;
+}
+}
+
+Indexer::Indexer(DatabaseManager& database, const std::string& driveLetter, bool enableUsn)
     : db(database), usingUsn(false) {
-    journal = std::make_unique<UsnJournal>(db, driveLetter);
-    if (journal->init()) {
-        usingUsn = true;
+    if (enableUsn) {
+        journal = std::make_unique<UsnJournal>(db, driveLetter);
+        if (journal->init()) {
+            usingUsn = true;
+        }
     }
 }
 
@@ -54,7 +79,8 @@ std::string formatFileTime(const fs::file_time_type& ftime) {
 
 void Indexer::scanDirectory(const std::string& directoryPath) {
     try {
-        if (!fs::exists(directoryPath) || !fs::is_directory(directoryPath)) {
+        const fs::path root = pathutil::fromUtf8(directoryPath);
+        if (!fs::exists(root) || !fs::is_directory(root)) {
             std::cerr << "Invalid directory path: " << directoryPath << std::endl;
             return;
         }
@@ -62,24 +88,9 @@ void Indexer::scanDirectory(const std::string& directoryPath) {
         std::cout << "Starting indexing for directory: " << directoryPath << std::endl;
         int count = 0;
 
-        for (const auto& entry : fs::recursive_directory_iterator(directoryPath, fs::directory_options::skip_permission_denied)) {
+        for (const auto& entry : fs::recursive_directory_iterator(root, fs::directory_options::skip_permission_denied)) {
             if (entry.is_regular_file()) {
-                FileRecord record;
-                record.file_path = entry.path().string();
-                record.file_name = entry.path().filename().string();
-                
-                // Extract extension (e.g. ".pdf", ".txt")
-                if (entry.path().has_extension()) {
-                    record.extension = entry.path().extension().string();
-                }
-                
-                try {
-                    record.last_modified = formatFileTime(entry.last_write_time());
-                } catch (const std::exception& e) {
-                    record.last_modified = "1970-01-01 00:00:00"; // fallback
-                }
-
-                // Insert into the database
+                FileRecord record = createFileRecord(entry);
                 if (db.insertFile(record)) {
                     count++;
                 }

@@ -8,6 +8,7 @@
         "icu",
         "libzip",
         "pugixml",
+        "nlohmann-json",
         "poppler"
     ]
 }

@@ -6,6 +6,8 @@
 #include "core/database.h"
 #include "search/quick_search.h"
 #include <cassert>
+#include <chrono>
+#include <ctime>
 #include <iostream>
 #include <cstdio>
 
@@ -150,6 +152,47 @@ void test_SearchDistinctResult() {
     std::cout << "[PASS] test_SearchDistinctResult\n";
 }
 
+void test_NaturalLanguageFiltersByTypeAndDate() {
+    cleanUp();
+    DatabaseManager db(TEST_DB);
+
+    FileRecord target;
+    target.file_name = "machine_learning_paper.pdf";
+    target.file_path = "C:/docs/machine_learning_paper.pdf";
+    target.extension = ".pdf";
+    target.last_modified = "2026-05-29 10:00:00";
+    db.insertFile(target);
+
+    FileRecord wrongDate = target;
+    wrongDate.file_name = "old_machine_learning_paper.pdf";
+    wrongDate.file_path = "C:/docs/old_machine_learning_paper.pdf";
+    wrongDate.last_modified = "2026-05-20 10:00:00";
+    db.insertFile(wrongDate);
+
+    FileRecord wrongType = target;
+    wrongType.file_name = "machine_learning_photo.png";
+    wrongType.file_path = "C:/docs/machine_learning_photo.png";
+    wrongType.extension = ".png";
+    wrongType.last_modified = "2026-05-29 10:00:00";
+    db.insertFile(wrongType);
+
+    std::tm tm{};
+    tm.tm_year = 2026 - 1900;
+    tm.tm_mon = 5 - 1;
+    tm.tm_mday = 30;
+    tm.tm_hour = 12;
+    tm.tm_isdst = -1;
+    const auto now = std::chrono::system_clock::from_time_t(std::mktime(&tm));
+    const auto parsed = search::parseSearchQuery("machine learning paper yesterday", now);
+
+    QuickSearch qs(db);
+    auto results = qs.search(parsed);
+
+    assert(results.size() == 1);
+    assert(results[0].file_name == "machine_learning_paper.pdf");
+    std::cout << "[PASS] test_NaturalLanguageFiltersByTypeAndDate\n";
+}
+
 int main() {
     std::cout << "=== Quick Search Tests ===\n";
     test_SearchByFileName();
@@ -157,6 +200,7 @@ int main() {
     test_SearchNoResults();
     test_SearchNullLastModifiedNoCrash();
     test_SearchDistinctResult();
+    test_NaturalLanguageFiltersByTypeAndDate();
     cleanUp();
     std::cout << "All quick search tests passed.\n";
     return 0;

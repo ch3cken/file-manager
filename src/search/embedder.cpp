@@ -15,20 +15,30 @@
  */
 
 #include "embedder.hpp"
+#include "core/path_utils.h"
 
 #include <algorithm>
 #include <array>
 #include <cctype>
 #include <cmath>
+#include <cstdio>
 #include <cstdint>
 #include <fstream>
+#include <iostream>
 #include <iterator>
 #include <numeric>
+#include <ostream>
 #include <sstream>
 #include <stdexcept>
 #include <utility>
 
 #include <onnxruntime_cxx_api.h>
+
+#ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
+#include <windows.h>
+#endif
 
 namespace nlp {
 namespace {
@@ -47,6 +57,86 @@ std::int64_t requireTokenId(const std::unordered_map<std::string, std::int64_t>&
     return it->second;
 }
 
+#ifdef _WIN32
+class ScopedNativeOutputSilencer {
+public:
+    ScopedNativeOutputSilencer()
+        : stdoutFd_(_dup(_fileno(stdout))),
+          stderrFd_(_dup(_fileno(stderr))),
+          stdoutHandle_(GetStdHandle(STD_OUTPUT_HANDLE)),
+          stderrHandle_(GetStdHandle(STD_ERROR_HANDLE)) {
+        std::cout.flush();
+        std::cerr.flush();
+        std::fflush(stdout);
+        std::fflush(stderr);
+
+        coutBuf_ = std::cout.rdbuf(coutSink_.rdbuf());
+        cerrBuf_ = std::cerr.rdbuf(cerrSink_.rdbuf());
+
+        nullFd_ = _open("NUL", _O_WRONLY);
+        if (nullFd_ != -1) {
+            _dup2(nullFd_, _fileno(stdout));
+            _dup2(nullFd_, _fileno(stderr));
+        }
+
+        nullHandle_ = CreateFileA("NUL",
+                                  GENERIC_WRITE,
+                                  FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                  nullptr,
+                                  OPEN_EXISTING,
+                                  FILE_ATTRIBUTE_NORMAL,
+                                  nullptr);
+        if (nullHandle_ != INVALID_HANDLE_VALUE) {
+            SetStdHandle(STD_OUTPUT_HANDLE, nullHandle_);
+            SetStdHandle(STD_ERROR_HANDLE, nullHandle_);
+        }
+    }
+
+    ~ScopedNativeOutputSilencer() {
+        std::cout.flush();
+        std::cerr.flush();
+        std::fflush(stdout);
+        std::fflush(stderr);
+
+        if (stdoutFd_ != -1) {
+            _dup2(stdoutFd_, _fileno(stdout));
+            _close(stdoutFd_);
+        }
+        if (stderrFd_ != -1) {
+            _dup2(stderrFd_, _fileno(stderr));
+            _close(stderrFd_);
+        }
+        if (nullFd_ != -1) {
+            _close(nullFd_);
+        }
+        if (stdoutHandle_ != INVALID_HANDLE_VALUE) {
+            SetStdHandle(STD_OUTPUT_HANDLE, stdoutHandle_);
+        }
+        if (stderrHandle_ != INVALID_HANDLE_VALUE) {
+            SetStdHandle(STD_ERROR_HANDLE, stderrHandle_);
+        }
+        if (nullHandle_ != INVALID_HANDLE_VALUE) {
+            CloseHandle(nullHandle_);
+        }
+
+        std::cout.rdbuf(coutBuf_);
+        std::cerr.rdbuf(cerrBuf_);
+    }
+
+private:
+    std::ostringstream coutSink_;
+    std::ostringstream cerrSink_;
+    std::streambuf* coutBuf_ = nullptr;
+    std::streambuf* cerrBuf_ = nullptr;
+    int stdoutFd_ = -1;
+    int stderrFd_ = -1;
+    int nullFd_ = -1;
+    HANDLE stdoutHandle_ = INVALID_HANDLE_VALUE;
+    HANDLE stderrHandle_ = INVALID_HANDLE_VALUE;
+    HANDLE nullHandle_ = INVALID_HANDLE_VALUE;
+};
+#endif
+
 } // anonymous namespace
 
 // ---------------------------------------------------------------------------
@@ -54,39 +144,45 @@ std::int64_t requireTokenId(const std::unordered_map<std::string, std::int64_t>&
 // ---------------------------------------------------------------------------
 
 Embedder::Embedder(Options options)
-    : options_(std::move(options)),
-      environment_(std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "filemanager-nlp")),
-      sessionOptions_(std::make_unique<Ort::SessionOptions>()) {
-
+    : options_(std::move(options)) {
     if (options_.modelPath.empty()) {
         throw std::invalid_argument("Embedder requires a non-empty ONNX model path");
     }
     if (options_.vocabPath.empty()) {
         throw std::invalid_argument("Embedder requires a non-empty vocabulary path");
     }
-    if (!std::filesystem::exists(options_.modelPath)) {
-        throw std::runtime_error("ONNX model file does not exist: " + options_.modelPath.string());
-    }
-    if (!std::filesystem::exists(options_.vocabPath)) {
-        throw std::runtime_error("Vocabulary file does not exist: " + options_.vocabPath.string());
-    }
     if (options_.maxSequenceLength < 3) {
         throw std::invalid_argument("maxSequenceLength must be at least 3");
     }
-
-    sessionOptions_->SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
-    if (options_.intraOpThreads > 0) {
-        sessionOptions_->SetIntraOpNumThreads(static_cast<int>(options_.intraOpThreads));
+    if (!std::filesystem::exists(options_.modelPath)) {
+        throw std::runtime_error("ONNX model file does not exist: " +
+                                 pathutil::toUtf8(options_.modelPath));
+    }
+    if (!std::filesystem::exists(options_.vocabPath)) {
+        throw std::runtime_error("Vocabulary file does not exist: " +
+                                 pathutil::toUtf8(options_.vocabPath));
     }
 
-    // Windows requires a wide-string path for the ONNX Runtime C++ API.
+    {
 #ifdef _WIN32
-    const std::wstring modelPath = options_.modelPath.wstring();
-    session_ = std::make_unique<Ort::Session>(*environment_, modelPath.c_str(), *sessionOptions_);
-#else
-    const std::string modelPath = options_.modelPath.string();
-    session_ = std::make_unique<Ort::Session>(*environment_, modelPath.c_str(), *sessionOptions_);
+        ScopedNativeOutputSilencer outputSilencer;
 #endif
+        environment_ = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "filemanager-nlp");
+        sessionOptions_ = std::make_unique<Ort::SessionOptions>();
+        sessionOptions_->SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+        if (options_.intraOpThreads > 0) {
+            sessionOptions_->SetIntraOpNumThreads(static_cast<int>(options_.intraOpThreads));
+        }
+
+        // Windows requires a wide-string path for the ONNX Runtime C++ API.
+#ifdef _WIN32
+        const std::wstring modelPath = options_.modelPath.wstring();
+        session_ = std::make_unique<Ort::Session>(*environment_, modelPath.c_str(), *sessionOptions_);
+#else
+        const std::string modelPath = pathutil::toUtf8(options_.modelPath);
+        session_ = std::make_unique<Ort::Session>(*environment_, modelPath.c_str(), *sessionOptions_);
+#endif
+    }
 
     loadVocabulary();
 
@@ -108,9 +204,40 @@ Embedder::Embedder(Options options)
     }
 }
 
-Embedder::~Embedder()                        = default;
-Embedder::Embedder(Embedder&&) noexcept      = default;
-Embedder& Embedder::operator=(Embedder&&) noexcept = default;
+Embedder::~Embedder() {
+#ifdef _WIN32
+    ScopedNativeOutputSilencer outputSilencer;
+#endif
+
+    session_.reset();
+    sessionOptions_.reset();
+    environment_.reset();
+}
+
+Embedder::Embedder(Embedder&& other) noexcept
+    : options_(std::move(other.options_)),
+      vocabulary_(std::move(other.vocabulary_)),
+      environment_(std::move(other.environment_)),
+      sessionOptions_(std::move(other.sessionOptions_)),
+      session_(std::move(other.session_)),
+      inputNames_(std::move(other.inputNames_)),
+      outputNames_(std::move(other.outputNames_)) {}
+
+Embedder& Embedder::operator=(Embedder&& other) noexcept {
+    if (this == &other) {
+        return *this;
+    }
+
+    std::scoped_lock lock(inferenceMutex_, other.inferenceMutex_);
+    options_ = std::move(other.options_);
+    vocabulary_ = std::move(other.vocabulary_);
+    environment_ = std::move(other.environment_);
+    sessionOptions_ = std::move(other.sessionOptions_);
+    session_ = std::move(other.session_);
+    inputNames_ = std::move(other.inputNames_);
+    outputNames_ = std::move(other.outputNames_);
+    return *this;
+}
 
 // ---------------------------------------------------------------------------
 // Public embedding API
@@ -250,12 +377,148 @@ std::vector<float> Embedder::embedFile(const std::filesystem::path& filePath) co
  */
 std::vector<std::vector<float>> Embedder::embedTexts(
     const std::vector<std::string>& texts) const {
-    std::vector<std::vector<float>> results;
-    results.reserve(texts.size());
-    for (const auto& text : texts) {
-        results.push_back(embedText(text));
+    if (texts.empty()) {
+        return {};
     }
-    return results;
+
+    std::vector<TokenizedInput> tokenizedInputs;
+    tokenizedInputs.reserve(texts.size());
+    for (const auto& text : texts) {
+        if (text.empty()) {
+            throw std::invalid_argument("Cannot embed empty text");
+        }
+        if (!isValidUtf8(text)) {
+            throw std::invalid_argument("Cannot embed invalid UTF-8 text");
+        }
+        tokenizedInputs.push_back(tokenize(text));
+    }
+
+    const std::size_t batchSize = tokenizedInputs.size();
+    const std::size_t sequenceLength = tokenizedInputs.front().inputIds.size();
+    const std::array<std::int64_t, 2> shape{
+        static_cast<std::int64_t>(batchSize),
+        static_cast<std::int64_t>(sequenceLength)
+    };
+
+    std::vector<std::int64_t> inputIds(batchSize * sequenceLength);
+    std::vector<std::int64_t> attentionMask(batchSize * sequenceLength);
+    std::vector<std::int64_t> tokenTypeIds(batchSize * sequenceLength);
+    for (std::size_t batch = 0; batch < batchSize; ++batch) {
+        const auto& tokenized = tokenizedInputs[batch];
+        const std::size_t offset = batch * sequenceLength;
+        std::copy(tokenized.inputIds.begin(), tokenized.inputIds.end(), inputIds.begin() + offset);
+        std::copy(tokenized.attentionMask.begin(), tokenized.attentionMask.end(), attentionMask.begin() + offset);
+        std::copy(tokenized.tokenTypeIds.begin(), tokenized.tokenTypeIds.end(), tokenTypeIds.begin() + offset);
+    }
+
+    Ort::MemoryInfo memoryInfo =
+        Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
+
+    auto makeTensor = [&](std::vector<std::int64_t>& values) {
+        return Ort::Value::CreateTensor<std::int64_t>(
+            memoryInfo,
+            values.data(),
+            values.size(),
+            shape.data(),
+            shape.size());
+    };
+
+    std::vector<Ort::Value> inputTensors;
+    std::vector<const char*> inputNamePtrs;
+    inputTensors.reserve(inputNames_.size());
+    inputNamePtrs.reserve(inputNames_.size());
+
+    for (const auto& name : inputNames_) {
+        inputNamePtrs.push_back(name.c_str());
+        if (name == "input_ids") {
+            inputTensors.push_back(makeTensor(inputIds));
+        } else if (name == "attention_mask") {
+            inputTensors.push_back(makeTensor(attentionMask));
+        } else if (name == "token_type_ids") {
+            inputTensors.push_back(makeTensor(tokenTypeIds));
+        } else {
+            throw std::runtime_error("Unsupported ONNX input name: " + name);
+        }
+    }
+
+    std::vector<const char*> outputNamePtrs;
+    outputNamePtrs.reserve(outputNames_.size());
+    for (const auto& name : outputNames_) {
+        outputNamePtrs.push_back(name.c_str());
+    }
+
+    std::vector<Ort::Value> outputs;
+    {
+        // Serialise inference to keep behaviour predictable across packaged
+        // ONNX Runtime versions on desktop (REQ-5.1.2 background CPU budget).
+        std::lock_guard<std::mutex> lock(inferenceMutex_);
+        outputs = session_->Run(Ort::RunOptions{nullptr},
+                                inputNamePtrs.data(),
+                                inputTensors.data(),
+                                inputTensors.size(),
+                                outputNamePtrs.data(),
+                                outputNamePtrs.size());
+    }
+
+    if (outputs.empty() || !outputs.front().IsTensor()) {
+        throw std::runtime_error("ONNX model did not return a tensor output");
+    }
+
+    const auto tensorInfo = outputs.front().GetTensorTypeAndShapeInfo();
+    const auto dimensions = tensorInfo.GetShape();
+    const float* data = outputs.front().GetTensorData<float>();
+
+    std::vector<std::vector<float>> results;
+    results.reserve(batchSize);
+
+    if (dimensions.size() == 2 &&
+        dimensions[0] == static_cast<std::int64_t>(batchSize) &&
+        dimensions[1] == kEmbeddingDimension) {
+        for (std::size_t batch = 0; batch < batchSize; ++batch) {
+            const float* row = data + batch * kEmbeddingDimension;
+            results.push_back(l2Normalize(std::vector<float>(row, row + kEmbeddingDimension)));
+        }
+        return results;
+    }
+
+    if (dimensions.size() == 3 &&
+        dimensions[0] == static_cast<std::int64_t>(batchSize) &&
+        dimensions[2] == kEmbeddingDimension) {
+        const std::size_t outputSequenceLength = static_cast<std::size_t>(dimensions[1]);
+        for (std::size_t batch = 0; batch < batchSize; ++batch) {
+            std::vector<float> pooled(kEmbeddingDimension, 0.0F);
+            float tokenCount = 0.0F;
+            const std::size_t offset = batch * sequenceLength;
+
+            for (std::size_t token = 0; token < outputSequenceLength && token < sequenceLength; ++token) {
+                if (attentionMask[offset + token] == 0) {
+                    continue;
+                }
+                ++tokenCount;
+                const float* row = data + ((batch * outputSequenceLength + token) * kEmbeddingDimension);
+                for (int dim = 0; dim < kEmbeddingDimension; ++dim) {
+                    pooled[static_cast<std::size_t>(dim)] += row[dim];
+                }
+            }
+            if (tokenCount == 0.0F) {
+                throw std::runtime_error("ONNX model returned no attended tokens to pool");
+            }
+            for (float& value : pooled) {
+                value /= tokenCount;
+            }
+            results.push_back(l2Normalize(std::move(pooled)));
+        }
+        return results;
+    }
+
+    std::ostringstream msg;
+    msg << "Unexpected ONNX output shape: [";
+    for (std::size_t i = 0; i < dimensions.size(); ++i) {
+        if (i > 0) { msg << ", "; }
+        msg << dimensions[i];
+    }
+    msg << "]";
+    throw std::runtime_error(msg.str());
 }
 
 int Embedder::getDimension() const noexcept {
@@ -270,7 +533,7 @@ void Embedder::loadVocabulary() {
     std::ifstream input(options_.vocabPath);
     if (!input) {
         throw std::runtime_error("Failed to open vocabulary file: " +
-                                 options_.vocabPath.string());
+                                 pathutil::toUtf8(options_.vocabPath));
     }
 
     std::string token;
@@ -281,7 +544,7 @@ void Embedder::loadVocabulary() {
     }
     if (vocabulary_.empty()) {
         throw std::runtime_error("Vocabulary file is empty: " +
-                                 options_.vocabPath.string());
+                                 pathutil::toUtf8(options_.vocabPath));
     }
 
     // Verify required BERT special tokens are present.
@@ -368,21 +631,22 @@ std::string Embedder::readUtf8File(const std::filesystem::path& filePath) {
     if (filePath.empty()) {
         throw std::invalid_argument("Cannot embed a file with an empty path");
     }
+    const std::string displayPath = pathutil::toUtf8(filePath);
     std::ifstream input(filePath, std::ios::binary);
     if (!input) {
-        throw std::runtime_error("Failed to open file for embedding: " + filePath.string());
+        throw std::runtime_error("Failed to open file for embedding: " + displayPath);
     }
     std::string contents(
         (std::istreambuf_iterator<char>(input)),
         std::istreambuf_iterator<char>());
     if (!input.good() && !input.eof()) {
-        throw std::runtime_error("Failed while reading file: " + filePath.string());
+        throw std::runtime_error("Failed while reading file: " + displayPath);
     }
     if (contents.empty()) {
-        throw std::invalid_argument("Cannot embed empty file: " + filePath.string());
+        throw std::invalid_argument("Cannot embed empty file: " + displayPath);
     }
     if (!isValidUtf8(contents)) {
-        throw std::invalid_argument("File is not valid UTF-8 text: " + filePath.string());
+        throw std::invalid_argument("File is not valid UTF-8 text: " + displayPath);
     }
     return contents;
 }

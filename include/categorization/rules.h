@@ -167,13 +167,19 @@ namespace categorization {
             return {};
         auto candidates = pathSegments(path);
         candidates.push_back(fileName);
+        std::string fallback;
         for (auto it = candidates.rbegin(); it != candidates.rend(); ++it) {
             const auto dot = it->find_last_of('.');
             const std::string candidate = label(dot == std::string::npos ? *it : it->substr(0, dot));
-            if (!candidate.empty() && containsAny(normalized(candidate), "project|capstone|milestone|team"))
+            if (candidate.empty())
+                continue;
+            const std::string normalizedCandidate = normalized(candidate);
+            if (containsAny(normalizedCandidate, "project|capstone|team"))
                 return candidate;
+            if (fallback.empty() && containsAny(normalizedCandidate, "milestone"))
+                fallback = candidate;
         }
-        return "project";
+        return fallback.empty() ? "project" : fallback;
     }
 
     /// REQ-4.2.3.3 / REQ-4.2.3.11: bucket byte size into simple searchable labels.

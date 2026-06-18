@@ -1,8 +1,21 @@
 config.json
 
 *.db
+*.db-shm
+*.db-wal
 *.index
 pdf_text.txt
+.codex_tmp/
+
+# .NET build and local app outputs
+bin/
+obj/
+**/bin/
+**/obj/
+testfile/artifacts/
+testfile/data/
+testfile/dist/
+testfile/config.json
 
 # CMake / Build outputs
 /build/

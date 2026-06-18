@@ -1,0 +1,36 @@
+<Window x:Class="FileManager.Desktop.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        Title="FileManager"
+        Width="1180"
+        Height="780"
+        MinWidth="980"
+        MinHeight="640"
+        WindowStartupLocation="CenterScreen"
+        Background="#F6F4EF">
+    <Grid>
+        <wv2:WebView2 x:Name="Browser"/>
+        <Border x:Name="LoadingOverlay"
+                Background="#F6F4EF">
+            <StackPanel HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Width="320">
+                <TextBlock Text="FileManager"
+                           FontSize="26"
+                           FontWeight="SemiBold"
+                           Foreground="#20252B"
+                           HorizontalAlignment="Center"/>
+                <TextBlock Text="Starting local search engine"
+                           Margin="0,10,0,18"
+                           FontSize="14"
+                           Foreground="#6D747C"
+                           HorizontalAlignment="Center"/>
+                <ProgressBar IsIndeterminate="True"
+                             Height="6"
+                             Foreground="#0F766E"
+                             Background="#DDD8CE"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

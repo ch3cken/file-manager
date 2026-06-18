@@ -1,4 +1,5 @@
 #include "core/usn_journal.h"
+#include "core/path_utils.h"
 #include <iostream>
 
 #ifdef _WIN32
@@ -147,9 +148,12 @@ std::string UsnJournal::getFilePathFromFileId(DWORDLONG fileId) {
     int utf8Size = WideCharToMultiByte(CP_UTF8, 0, wPath.c_str(), -1,
                                        nullptr, 0, NULL, NULL);
     if (utf8Size <= 0) return "";
-    std::string fullPath(utf8Size - 1, '\0');
+    std::string fullPath(utf8Size, '\0');
     WideCharToMultiByte(CP_UTF8, 0, wPath.c_str(), -1,
                         &fullPath[0], utf8Size, NULL, NULL);
+    if (!fullPath.empty() && fullPath.back() == '\0') {
+        fullPath.pop_back();
+    }
 
     // Remove the "\\?\" prefix added by GetFinalPathNameByHandleW
     if (fullPath.rfind("\\\\?\\", 0) == 0) {
@@ -180,11 +184,14 @@ void UsnJournal::processUsnRecord(void* recordBuffer) {
         return;
     }
 
-    char charName[MAX_PATH];
+    const int utf8NameSize = WideCharToMultiByte(CP_UTF8, 0, pRecord->FileName, nameLen,
+                                                 nullptr, 0, NULL, NULL);
+    if (utf8NameSize <= 0) {
+        return;
+    }
+    std::string fileName(static_cast<std::size_t>(utf8NameSize), '\0');
     WideCharToMultiByte(CP_UTF8, 0, pRecord->FileName, nameLen,
-                        charName, MAX_PATH - 1, NULL, NULL);
-    charName[nameLen] = '\0';
-    std::string fileName(charName);
+                        &fileName[0], utf8NameSize, NULL, NULL);
 
     if (isDelete) {
         // Issue #13: deleting by file_name alone can match unrelated files with the
@@ -210,8 +217,8 @@ void UsnJournal::processUsnRecord(void* recordBuffer) {
             record.file_name = fileName;
 
             try {
-                fs::path p(fullPath);
-                if (p.has_extension()) record.extension = p.extension().string();
+                fs::path p = pathutil::fromUtf8(fullPath);
+                if (p.has_extension()) record.extension = pathutil::toUtf8(p.extension());
                 record.last_modified = formatFileTime(fs::last_write_time(p));
             } catch (...) {
                 record.last_modified = "1970-01-01 00:00:00";

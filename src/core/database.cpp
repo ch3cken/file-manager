@@ -50,7 +50,16 @@ void DatabaseManager::initializeTables() {
 }
 
 bool DatabaseManager::insertFile(const FileRecord& record) {
-    const char* sql = "INSERT OR REPLACE INTO files (file_name, file_path, extension, created_date, last_modified, embedding) VALUES (?, ?, ?, ?, ?, ?);";
+    const char* sql = R"(
+        INSERT INTO files (file_name, file_path, extension, created_date, last_modified, embedding)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(file_path) DO UPDATE SET
+            file_name = excluded.file_name,
+            extension = excluded.extension,
+            created_date = COALESCE(excluded.created_date, files.created_date),
+            last_modified = COALESCE(excluded.last_modified, files.last_modified),
+            embedding = COALESCE(excluded.embedding, files.embedding);
+    )";
     sqlite3_stmt* stmt;
     
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {

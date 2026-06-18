@@ -1,0 +1,7 @@
+bin/
+obj/
+data/
+config.json
+*.db
+*.db-shm
+*.db-wal

@@ -83,7 +83,7 @@ public:
     [[nodiscard]] std::vector<float> embedFile(const std::filesystem::path& filePath) const;
 
     /**
-     * Embeds a batch of texts sequentially using one loaded model instance.
+     * Embeds a batch of texts using one ONNX Runtime call.
      * Prefer this over repeated embedText() calls when indexing many files.
      */
     [[nodiscard]] std::vector<std::vector<float>> embedTexts(

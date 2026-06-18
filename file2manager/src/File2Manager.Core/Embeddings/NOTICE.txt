@@ -1,0 +1,5 @@
+Embedding model:
+Xenova/all-MiniLM-L6-v2
+https://huggingface.co/Xenova/all-MiniLM-L6-v2
+License: Apache-2.0
+

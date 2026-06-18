@@ -1,0 +1,20 @@
+<Project>
+  <PropertyGroup>
+    <DefaultItemExcludes>$(DefaultItemExcludes);bin\**;obj\**;dist\**;artifacts\**;data\**;config.json</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'FileManager.UiHost'">
+    <BaseIntermediateOutputPath>obj\UiHost\</BaseIntermediateOutputPath>
+    <MSBuildProjectExtensionsPath>obj\UiHost\</MSBuildProjectExtensionsPath>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'FileManager.Desktop'">
+    <BaseIntermediateOutputPath>obj\Desktop\</BaseIntermediateOutputPath>
+    <MSBuildProjectExtensionsPath>obj\Desktop\</MSBuildProjectExtensionsPath>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'FileManager.Installer'">
+    <BaseIntermediateOutputPath>obj\Installer\</BaseIntermediateOutputPath>
+    <MSBuildProjectExtensionsPath>obj\Installer\</MSBuildProjectExtensionsPath>
+  </PropertyGroup>
+</Project>

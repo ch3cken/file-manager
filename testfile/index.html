@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>fileManager UI</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Main navigation">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">FM</span>
+          <div>
+            <strong>fileManager</strong>
+            <span>local search</span>
+          </div>
+        </div>
+
+        <nav class="nav-list" aria-label="Views">
+          <button class="nav-item is-active" type="button" data-view="search">Search</button>
+          <button class="nav-item" type="button" data-view="setup">Setup</button>
+          <button class="nav-item" type="button" data-view="settings">Settings</button>
+          <button class="nav-item" type="button" data-view="keywords">Keywords</button>
+        </nav>
+
+        <div class="sidebar-status">
+          <span class="status-dot"></span>
+          <div>
+            <strong id="sidebarStatusText">Index ready</strong>
+            <span id="sidebarStatusSubtext">0 files</span>
+          </div>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow" id="viewEyebrow">Overlay UI</p>
+            <h1 id="viewTitle">Search files</h1>
+          </div>
+          <div class="topbar-actions">
+            <span class="hotkey">Alt + Space</span>
+            <button class="primary-button" type="button" id="openOverlayButton">Open overlay</button>
+          </div>
+        </header>
+
+        <section class="view is-active" data-view-panel="search" aria-labelledby="searchTitle">
+          <div class="search-stage">
+            <div class="overlay-card" id="searchTitle">
+              <div class="search-bar">
+                <input id="searchInput" type="search" value="software engineering paper" autocomplete="off" aria-label="Search query">
+                <button class="primary-button" type="button" id="searchButton">Search</button>
+              </div>
+
+              <div class="search-controls">
+                <div class="mode-control" role="radiogroup" aria-label="Search mode">
+                  <label><input type="radio" name="searchMode" value="hybrid" checked> Hybrid</label>
+                  <label><input type="radio" name="searchMode" value="quick"> Quick only</label>
+                  <label><input type="radio" name="searchMode" value="smart"> Smart only</label>
+                </div>
+                <label class="select-field">
+                  <span>Modified</span>
+                  <select id="modifiedDateFilter" aria-label="Modified date filter">
+                    <option value="any" selected>Any time</option>
+                    <option value="today">Today</option>
+                    <option value="yesterday">Yesterday</option>
+                    <option value="this-week">This week</option>
+                    <option value="last-7-days">Last 7 days</option>
+                    <option value="this-month">This month</option>
+                    <option value="last-30-days">Last 30 days</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="query-details" id="queryDetails">
+                <span>Type: PDF</span>
+                <span>Modified: any</span>
+                <span>Mode: hybrid</span>
+              </div>
+
+              <div class="result-grid" id="resultGrid">
+                <section class="result-pane quick-pane" aria-labelledby="quickHeading">
+                  <div class="pane-heading">
+                    <div>
+                      <p class="eyebrow">Quick Search</p>
+                      <h2 id="quickHeading">Filename matches</h2>
+                    </div>
+                    <span class="metric" id="quickMetric">0.08s</span>
+                  </div>
+                  <div class="result-list" id="quickResults"></div>
+                </section>
+
+                <section class="result-pane smart-pane" aria-labelledby="smartHeading">
+                  <div class="pane-heading">
+                    <div>
+                      <p class="eyebrow">Smart Search</p>
+                      <h2 id="smartHeading">Semantic matches</h2>
+                    </div>
+                    <span class="metric" id="smartMetric">ready</span>
+                  </div>
+                  <div class="result-list compact" id="smartResults"></div>
+                </section>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" data-view-panel="setup" aria-labelledby="setupTitle">
+          <div class="setup-layout">
+            <section class="form-panel">
+              <div class="section-heading">
+                <p class="eyebrow">Initial setup</p>
+                <h2 id="setupTitle">Paths and indexing scope</h2>
+              </div>
+
+              <div class="field-grid">
+                <label class="field">
+                  <span>App installation path</span>
+                  <input id="setupAppPath" type="text" value="C:\Program Files\fileManager">
+                </label>
+                <label class="field">
+                  <span>Database path</span>
+                  <input id="setupDbPath" type="text" value="C:\Users\LG\AppData\Local\fileManager\db">
+                </label>
+              </div>
+
+              <div class="scope-block">
+                <div class="block-heading">
+                  <h3>Smart Search scope</h3>
+                  <button class="ghost-button" type="button" data-add-folder="smart">Add folder</button>
+                </div>
+                <div class="folder-list" id="setupSmartFolders"></div>
+                <div class="extension-row" id="setupExtensions"></div>
+              </div>
+
+              <div class="scope-block">
+                <div class="block-heading">
+                  <h3>Categorization targets</h3>
+                  <button class="ghost-button" type="button" data-add-folder="category">Add folder</button>
+                </div>
+                <div class="folder-list" id="setupCategoryFolders"></div>
+              </div>
+
+              <div class="form-actions">
+                <button class="secondary-button" type="button" id="resetSetupButton">Reset</button>
+                <button class="primary-button" type="button" id="saveSetupButton">Save setup</button>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" data-view-panel="settings" aria-labelledby="settingsTitle">
+          <div class="settings-layout">
+            <div class="tabs" role="tablist" aria-label="Settings sections">
+              <button class="tab is-active" type="button" role="tab" data-tab="general">General</button>
+              <button class="tab" type="button" role="tab" data-tab="scope">Search Scope</button>
+              <button class="tab" type="button" role="tab" data-tab="indexing">Indexing Status</button>
+              <button class="tab" type="button" role="tab" data-tab="appearance">Appearance</button>
+              <button class="tab" type="button" role="tab" data-tab="info">App Info</button>
+            </div>
+
+            <div class="tab-panel is-active" data-tab-panel="general">
+              <div class="section-heading">
+                <p class="eyebrow">Settings</p>
+                <h2 id="settingsTitle">General</h2>
+              </div>
+              <div class="field-grid">
+                <label class="field">
+                  <span>Installation path</span>
+                  <input id="settingsAppPath" type="text" value="C:\Program Files\fileManager">
+                </label>
+                <label class="field">
+                  <span>Database path</span>
+                  <input id="settingsDbPath" type="text" value="C:\Users\LG\AppData\Local\fileManager\db">
+                </label>
+                <label class="field">
+                  <span>Overlay hotkey</span>
+                  <input id="hotkeyInput" type="text" value="Alt + Space">
+                </label>
+              </div>
+              <button class="primary-button" type="button" id="saveGeneralButton">Save changes</button>
+            </div>
+
+            <div class="tab-panel" data-tab-panel="scope">
+              <div class="section-heading">
+                <p class="eyebrow">Smart Search</p>
+                <h2>Folders and extensions</h2>
+              </div>
+              <div class="scope-block flush">
+                <div class="folder-list" id="settingsSmartFolders"></div>
+                <div class="extension-row" id="settingsExtensions"></div>
+              </div>
+              <button class="primary-button" type="button" id="saveScopeButton">Apply scope</button>
+            </div>
+
+            <div class="tab-panel" data-tab-panel="indexing">
+              <div class="section-heading">
+                <p class="eyebrow">Indexing Status</p>
+                <h2>Local processing</h2>
+              </div>
+              <div class="status-grid">
+                <div class="status-tile">
+                  <span>Total indexed</span>
+                  <strong id="indexedCountText">0</strong>
+                </div>
+                <div class="status-tile">
+                  <span>Files seen</span>
+                  <strong id="filesSeenText">0</strong>
+                </div>
+                <div class="status-tile">
+                  <span>Exceptions</span>
+                  <strong id="exceptionsText">0</strong>
+                </div>
+              </div>
+              <div class="job-stack">
+                <div class="job-row">
+                  <span id="indexStatusMessage">Idle</span>
+                  <strong id="indexStatusState">idle</strong>
+                  <div class="progress"><span id="indexProgressFill" style="width: 0%"></span></div>
+                </div>
+                <div class="job-row">
+                  <span>Indexed in current run</span>
+                  <strong id="filesIndexedText">0</strong>
+                  <div class="progress"><span id="filesIndexedFill" style="width: 0%"></span></div>
+                </div>
+              </div>
+              <div class="form-actions">
+                <button class="secondary-button" type="button" id="refreshStatusButton">Refresh</button>
+                <button class="primary-button" type="button" id="rebuildIndexButton">Rebuild index</button>
+              </div>
+            </div>
+
+            <div class="tab-panel" data-tab-panel="appearance">
+              <div class="section-heading">
+                <p class="eyebrow">Appearance</p>
+                <h2>Theme</h2>
+              </div>
+              <div class="theme-preview">
+                <span class="theme-swatch"></span>
+                <div>
+                  <strong>FileManager Light</strong>
+                  <span>Neutral background, teal accent, compact desktop controls</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="tab-panel" data-tab-panel="info">
+              <div class="section-heading">
+                <p class="eyebrow">App Info</p>
+                <h2>Version and team</h2>
+              </div>
+              <dl class="info-list">
+                <div><dt>Version</dt><dd>0.1.0 UI prototype</dd></div>
+                <div><dt>Platform</dt><dd>Windows 10/11</dd></div>
+                <div><dt>Storage</dt><dd>Local database and config.json</dd></div>
+                <div><dt>Team</dt><dd>Team 12</dd></div>
+              </dl>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" data-view-panel="keywords" aria-labelledby="keywordTitle">
+          <div class="keyword-layout">
+            <section class="file-browser">
+              <div class="section-heading">
+                <p class="eyebrow">Custom Keywords</p>
+                <h2 id="keywordTitle">Files</h2>
+              </div>
+              <input class="filter-input" id="keywordFilter" type="search" placeholder="Filter files" aria-label="Filter files">
+              <div class="file-list" id="keywordFileList"></div>
+            </section>
+
+            <section class="keyword-editor">
+              <div class="section-heading">
+                <p class="eyebrow">Selected file</p>
+                <h2 id="selectedFileName">No file selected</h2>
+              </div>
+              <p class="path-line" id="selectedFilePath"></p>
+              <div class="tag-section">
+                <span>Generated tags</span>
+                <div class="keyword-cloud generated" id="generatedTagCloud"></div>
+              </div>
+              <div class="tag-section">
+                <span>Custom tags</span>
+              </div>
+              <div class="keyword-cloud" id="keywordCloud"></div>
+              <form class="keyword-form" id="keywordForm">
+                <input id="keywordInput" type="text" placeholder="Add keyword" autocomplete="off" aria-label="Add keyword">
+                <button class="primary-button" type="submit">Add</button>
+              </form>
+              <button class="secondary-button" type="button" id="saveKeywordButton">Save keywords</button>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="overlay-backdrop" id="overlayBackdrop" aria-hidden="true">
+      <div class="overlay-card floating" role="dialog" aria-modal="true" aria-label="Overlay Search">
+        <div class="search-bar">
+          <input id="floatingSearchInput" type="search" value="software engineering paper" autocomplete="off" aria-label="Overlay search query">
+          <button class="primary-button" type="button" id="floatingSearchButton">Search</button>
+        </div>
+        <div class="search-controls">
+          <div class="mode-control" role="radiogroup" aria-label="Overlay search mode">
+            <label><input type="radio" name="floatingSearchMode" value="hybrid" checked> Hybrid</label>
+            <label><input type="radio" name="floatingSearchMode" value="quick"> Quick only</label>
+            <label><input type="radio" name="floatingSearchMode" value="smart"> Smart only</label>
+          </div>
+          <label class="select-field">
+            <span>Modified</span>
+            <select id="floatingModifiedDateFilter" aria-label="Overlay modified date filter">
+              <option value="any" selected>Any time</option>
+              <option value="today">Today</option>
+              <option value="yesterday">Yesterday</option>
+              <option value="this-week">This week</option>
+              <option value="last-7-days">Last 7 days</option>
+              <option value="this-month">This month</option>
+              <option value="last-30-days">Last 30 days</option>
+            </select>
+          </label>
+        </div>
+        <div class="result-grid" id="floatingResultGrid">
+          <section class="result-pane quick-pane" aria-label="Floating quick results">
+            <div class="pane-heading">
+              <div>
+                <p class="eyebrow">Quick Search</p>
+                <h2>Filename matches</h2>
+              </div>
+              <span class="metric" id="floatingQuickMetric">0.08s</span>
+            </div>
+            <div class="result-list" id="floatingQuickResults"></div>
+          </section>
+          <section class="result-pane smart-pane" aria-label="Floating smart results">
+            <div class="pane-heading">
+              <div>
+                <p class="eyebrow">Smart Search</p>
+                <h2>Semantic matches</h2>
+              </div>
+              <span class="metric" id="floatingSmartMetric">ready</span>
+            </div>
+            <div class="result-list compact" id="floatingSmartResults"></div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -1,37 +1,47 @@
-#include <iostream>
 #include <chrono>
-#include <thread>
+#include <exception>
 #include <filesystem>
+#include <iostream>
+#include <thread>
+
+#include "config/app_config.h"
 #include "core/database.h"
 #include "core/indexer.h"
+#include "core/path_utils.h"
 
 namespace fs = std::filesystem;
 
 int main() {
     std::cout << "Starting FileManager Engine..." << std::endl;
-    
-    // Initialize the database in the local directory for testing.
-    // In production, this path will be read from config.json (SRS §4.3.3.7).
-    DatabaseManager db("local_database.db");
-    std::cout << "Database initialized." << std::endl;
-    
-    // Issue #6: drive letter is now configurable; default "C:" used here.
-    // In production this will come from config.json.
-    Indexer indexer(db, "C:");
 
-    // Issue #23: use absolute path so stored file_path entries are always
-    // fully qualified, enabling reliable file launch from the UI.
-    fs::path testPath = fs::absolute("./src");
-    indexer.scanDirectory(testPath.string());
-    
+    config::AppConfig appConfig;
+    try {
+        appConfig = config::loadOrCreateConfig();
+        std::cout << "Loaded config.json from " << config::defaultConfigPath() << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "Could not load config.json: " << e.what() << std::endl;
+        return 1;
+    }
+
+    DatabaseManager db(appConfig.databasePath);
+    std::cout << "Database initialized." << std::endl;
+
+    Indexer indexer(db, "C:");
+    for (const auto& directory : appConfig.quickSearchDirectories) {
+        fs::path scanPath = fs::absolute(pathutil::fromUtf8(directory));
+        indexer.scanDirectory(scanPath.string());
+    }
+    if (appConfig.quickSearchDirectories.empty()) {
+        std::cout << "No quickSearchDirectories configured; real-time USN sync will update the database when available." << std::endl;
+    }
+
     std::cout << "Initialization and Static Indexing complete." << std::endl;
     std::cout << "Entering background polling loop (Press Ctrl+C to stop)..." << std::endl;
-    
-    // Background Daemon Loop
+
     while (true) {
         indexer.update();
         std::this_thread::sleep_for(std::chrono::seconds(5));
     }
-    
+
     return 0;
 }

@@ -114,8 +114,8 @@ namespace categorization {
         return n > 0 ? std::string(buf) : std::string{};
     #else
         (void)path; return {};
-    }
     #endif
+    }
 
     /// REQ-4.2.2.1-B / REQ-4.2.3.3 / REQ-4.2.3.13: collect file name, path, extension, dates, and size; return partial metadata plus an exception reason on failure.
     inline FileMetadata collectMetadata(const std::string& path, std::string* exceptionReason = nullptr) {

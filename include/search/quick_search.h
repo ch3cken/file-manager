@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/database.h"
+#include "search/query_parser.h"
 #include <vector>
 #include <string>
 
@@ -13,4 +14,6 @@ public:
 
     // Executes a quick search query matching filenames or tags
     std::vector<FileRecord> search(const std::string& keyword);
+    std::vector<FileRecord> search(const search::ParsedSearchQuery& query,
+                                   std::size_t limit = 100);
 };

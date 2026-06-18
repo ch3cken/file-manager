@@ -213,6 +213,57 @@ void test_InsertOrReplaceUpserts() {
     std::cout << "[PASS] test_InsertOrReplaceUpserts\n";
 }
 
+void test_UpsertPreservesTagsAndEmbedding() {
+    cleanUp();
+    DatabaseManager db(TEST_DB);
+
+    FileRecord r;
+    r.file_name = "semantic.txt";
+    r.file_path = "C:/test/semantic.txt";
+    r.extension = ".txt";
+    r.last_modified = "2026-01-01 00:00:00";
+    r.embedding = {1.0F, 0.0F};
+    db.insertFile(r);
+
+    sqlite3_stmt* stmt;
+    sqlite3_prepare_v2(db.getDb(),
+        "SELECT file_id FROM files WHERE file_path = 'C:/test/semantic.txt';",
+        -1, &stmt, nullptr);
+    sqlite3_step(stmt);
+    int fileId = sqlite3_column_int(stmt, 0);
+    sqlite3_finalize(stmt);
+    db.addTagToFile(fileId, "keyword:important");
+
+    FileRecord updated;
+    updated.file_name = "semantic.txt";
+    updated.file_path = "C:/test/semantic.txt";
+    updated.extension = ".txt";
+    updated.last_modified = "2026-02-01 00:00:00";
+    assert(db.insertFile(updated));
+
+    sqlite3_prepare_v2(db.getDb(),
+        "SELECT file_id, embedding IS NOT NULL FROM files WHERE file_path = ?;",
+        -1, &stmt, nullptr);
+    sqlite3_bind_text(stmt, 1, updated.file_path.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_step(stmt);
+    int updatedFileId = sqlite3_column_int(stmt, 0);
+    int hasEmbedding = sqlite3_column_int(stmt, 1);
+    sqlite3_finalize(stmt);
+
+    sqlite3_prepare_v2(db.getDb(),
+        "SELECT COUNT(*) FROM tags WHERE file_id = ? AND tag_name = 'keyword:important';",
+        -1, &stmt, nullptr);
+    sqlite3_bind_int(stmt, 1, updatedFileId);
+    sqlite3_step(stmt);
+    int tagCount = sqlite3_column_int(stmt, 0);
+    sqlite3_finalize(stmt);
+
+    assert(updatedFileId == fileId && "upsert should preserve file_id");
+    assert(hasEmbedding == 1 && "metadata-only upsert should preserve existing embedding");
+    assert(tagCount == 1 && "upsert should preserve existing tags");
+    std::cout << "[PASS] test_UpsertPreservesTagsAndEmbedding\n";
+}
+
 // ─── main ─────────────────────────────────────────────────────────────────────
 
 int main() {
@@ -224,6 +275,7 @@ int main() {
     test_InsertFileNullLastModified();
     test_TagsCascadeDeletedWithFile();
     test_InsertOrReplaceUpserts();
+    test_UpsertPreservesTagsAndEmbedding();
     cleanUp();
     std::cout << "All database tests passed.\n";
     return 0;

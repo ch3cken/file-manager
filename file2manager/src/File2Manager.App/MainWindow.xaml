@@ -1,0 +1,349 @@
+<Window x:Class="File2Manager.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="file2manager"
+        Width="1160"
+        Height="760"
+        MinWidth="960"
+        MinHeight="620"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource AppBackgroundBrush}"
+        Foreground="{DynamicResource PrimaryTextBrush}"
+        Loaded="OnLoaded"
+        Closing="OnClosing">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="64"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="0,0,0,1"
+                Background="{DynamicResource PanelBackgroundBrush}">
+            <Grid Margin="24,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="file2manager"
+                               FontSize="22"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
+                    <TextBlock x:Name="HeaderStatusText"
+                               Margin="18,2,0,0"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock x:Name="HotkeyDisplayText"
+                               Margin="0,0,14,0"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               VerticalAlignment="Center"/>
+                    <Button Content="Open Overlay" Click="OnOpenOverlay"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="0,0,1,0"
+                    Background="{DynamicResource PanelBackgroundBrush}">
+                <StackPanel Margin="16">
+                    <Button x:Name="SearchNavButton" Content="Search" Click="OnNavigateSearch" Margin="0,0,0,10"/>
+                    <Button x:Name="SettingsNavButton" Content="Settings" Click="OnNavigateSettings" Margin="0,0,0,10"/>
+                    <Button x:Name="KeywordsNavButton" Content="Custom Keywords" Click="OnNavigateKeywords" Margin="0,0,0,10"/>
+                </StackPanel>
+            </Border>
+
+            <Grid Grid.Column="1" Margin="24">
+                <Grid x:Name="SearchPage">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="SearchQueryTextBox"
+                                 FontSize="18"
+                                 MinHeight="48"
+                                 TextChanged="OnSearchQueryChanged"
+                                 KeyDown="OnSearchBoxKeyDown"/>
+                        <Button Grid.Column="1"
+                                Content="Rebuild Index"
+                                Margin="12,0,0,0"
+                                Click="OnRebuildIndex"/>
+                    </Grid>
+
+                    <Grid Grid.Row="1" Margin="0,18,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="18"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Grid Grid.Column="0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="Quick Search" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                            <ListView x:Name="QuickResultsList"
+                                      Grid.Row="1"
+                                      MouseDoubleClick="OnResultOpen">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="Name" DisplayMemberBinding="{Binding FileName}" Width="210"/>
+                                        <GridViewColumn Header="Path" DisplayMemberBinding="{Binding DirectoryPath}" Width="300"/>
+                                        <GridViewColumn Header="Modified" DisplayMemberBinding="{Binding ModifiedLocalText}" Width="130"/>
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+                        </Grid>
+
+                        <Grid Grid.Column="2">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="Smart Search" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                            <ListView x:Name="SmartResultsList"
+                                      Grid.Row="1"
+                                      MouseDoubleClick="OnResultOpen">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="Name" DisplayMemberBinding="{Binding FileName}" Width="240"/>
+                                        <GridViewColumn Header="Tags" DisplayMemberBinding="{Binding Tags}" Width="250"/>
+                                        <GridViewColumn Header="Score" DisplayMemberBinding="{Binding Score}" Width="70"/>
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+                        </Grid>
+                    </Grid>
+                </Grid>
+
+                <Grid x:Name="SettingsPage" Visibility="Collapsed">
+                    <TabControl>
+                        <TabItem Header="General">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel Margin="18" MaxWidth="760" HorizontalAlignment="Left">
+                                    <TextBlock Text="Installation path" Margin="0,0,0,6"/>
+                                    <TextBox x:Name="InstallationPathTextBox" IsReadOnly="True" Margin="0,0,0,14"/>
+
+                                    <TextBlock Text="Database path" Margin="0,0,0,6"/>
+                                    <Grid Margin="0,0,0,14">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox x:Name="DatabasePathTextBox"/>
+                                        <Button Grid.Column="1" Content="Browse" Margin="10,0,0,0" Click="OnBrowseDatabasePath"/>
+                                    </Grid>
+
+                                    <TextBlock Text="Overlay hotkey" Margin="0,0,0,6"/>
+                                    <TextBox x:Name="HotkeyTextBox" Margin="0,0,0,14"/>
+
+                                    <CheckBox x:Name="IndexAllDrivesCheckBox"
+                                              Content="Index all fixed drives for Quick Search"
+                                              Foreground="{DynamicResource PrimaryTextBrush}"
+                                              Margin="0,0,0,18"/>
+
+                                    <Button Content="Save General Settings" HorizontalAlignment="Left" Click="OnSaveSettings"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </TabItem>
+
+                        <TabItem Header="Search Scope">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <Grid Margin="18">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="18"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Text="Quick Search folders" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                    <ListBox x:Name="QuickDirectoriesListBox" Grid.Row="1" MinHeight="150"/>
+                                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,18">
+                                        <Button Content="Add" Click="OnAddQuickDirectory"/>
+                                        <Button Content="Remove" Margin="8,0,0,0" Click="OnRemoveQuickDirectory"/>
+                                    </StackPanel>
+
+                                    <TextBlock Grid.Column="2" Text="Smart Search extensions" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                    <TextBox x:Name="SmartExtensionsTextBox" Grid.Column="2" Grid.Row="1" MinHeight="44"/>
+                                    <Button Grid.Column="2" Grid.Row="2" Content="Save Search Scope" HorizontalAlignment="Left" Margin="0,10,0,18" Click="OnSaveSettings"/>
+
+                                    <TextBlock Grid.Row="3" Text="Smart Search folders" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                    <DockPanel Grid.Row="3" Margin="0,28,0,0">
+                                        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,10,0,0">
+                                            <Button Content="Add" Click="OnAddSmartDirectory"/>
+                                            <Button Content="Remove" Margin="8,0,0,0" Click="OnRemoveSmartDirectory"/>
+                                        </StackPanel>
+                                        <ListBox x:Name="SmartDirectoriesListBox" MinHeight="170"/>
+                                    </DockPanel>
+
+                                    <TextBlock Grid.Column="2" Grid.Row="3" Text="Categorization folders" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                    <DockPanel Grid.Column="2" Grid.Row="3" Margin="0,28,0,0">
+                                        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,10,0,0">
+                                            <Button Content="Add" Click="OnAddCategorizationDirectory"/>
+                                            <Button Content="Remove" Margin="8,0,0,0" Click="OnRemoveCategorizationDirectory"/>
+                                        </StackPanel>
+                                        <ListBox x:Name="CategorizationDirectoriesListBox" MinHeight="170"/>
+                                    </DockPanel>
+                                </Grid>
+                            </ScrollViewer>
+                        </TabItem>
+
+                        <TabItem Header="Indexing Status">
+                            <StackPanel Margin="18" MaxWidth="780" HorizontalAlignment="Left">
+                                <TextBlock x:Name="IndexStatusText" Margin="0,0,0,12"/>
+                                <ProgressBar x:Name="IndexProgressBar" Height="14" IsIndeterminate="False" Margin="0,0,0,18"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="Rebuild Index" Click="OnRebuildIndex"/>
+                                    <Button Content="Refresh Count" Margin="8,0,0,0" Click="OnRefreshIndexCount"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </TabItem>
+
+                        <TabItem Header="Appearance">
+                            <StackPanel Margin="18" MaxWidth="420" HorizontalAlignment="Left">
+                                <TextBlock Text="Dark theme" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                <TextBlock Text="file2manager uses a fixed dark interface for consistent contrast." Foreground="{DynamicResource SecondaryTextBrush}"/>
+                            </StackPanel>
+                        </TabItem>
+
+                        <TabItem Header="App Information">
+                            <StackPanel Margin="18" MaxWidth="760" HorizontalAlignment="Left">
+                                <TextBlock Text="file2manager" FontSize="24" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                <TextBlock Text="Version 1.0.0" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,8"/>
+                                <TextBlock Text="Team 12 - CS350 SRS implementation" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                            </StackPanel>
+                        </TabItem>
+                    </TabControl>
+                </Grid>
+
+                <Grid x:Name="KeywordsPage" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel MaxWidth="820" HorizontalAlignment="Left">
+                        <TextBlock Text="File" Margin="0,0,0,6"/>
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="KeywordFilePathTextBox"/>
+                            <Button Grid.Column="1" Content="Browse" Margin="10,0,0,0" Click="OnBrowseKeywordFile"/>
+                        </Grid>
+
+                        <TextBlock Text="Keywords" Margin="0,0,0,6"/>
+                        <TextBox x:Name="KeywordsTextBox" MinHeight="48" Margin="0,0,0,14"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
+                            <Button Content="Save Keywords" Click="OnSaveKeywords"/>
+                            <Button Content="Delete Keywords" Margin="8,0,0,0" Click="OnDeleteKeywords"/>
+                            <Button Content="Reload" Margin="8,0,0,0" Click="OnReloadKeywords"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <ListView x:Name="KeywordFilesList"
+                              Grid.Row="1"
+                              SelectionChanged="OnKeywordSelectionChanged"
+                              MouseDoubleClick="OnResultOpen">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="Name" DisplayMemberBinding="{Binding FileName}" Width="240"/>
+                                <GridViewColumn Header="Keywords / Tags" DisplayMemberBinding="{Binding Tags}" Width="320"/>
+                                <GridViewColumn Header="Path" DisplayMemberBinding="{Binding DirectoryPath}" Width="360"/>
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </Grid>
+            </Grid>
+        </Grid>
+
+        <Border x:Name="SetupOverlay"
+                Grid.RowSpan="2"
+                Background="#AA000000"
+                Visibility="Collapsed">
+            <Border Width="760"
+                    MaxHeight="660"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"
+                    Background="{DynamicResource PanelBackgroundBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1"
+                    Padding="24">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="Initial Setup Wizard" FontSize="26" FontWeight="SemiBold" Margin="0,0,0,18"/>
+
+                        <TextBlock Text="Installation path" Margin="0,0,0,6"/>
+                        <TextBox x:Name="SetupInstallationPathTextBox" IsReadOnly="True" Margin="0,0,0,12"/>
+
+                        <TextBlock Text="Database path" Margin="0,0,0,6"/>
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="SetupDatabasePathTextBox"/>
+                            <Button Grid.Column="1" Content="Browse" Margin="10,0,0,0" Click="OnBrowseSetupDatabasePath"/>
+                        </Grid>
+
+                        <TextBlock Text="Smart Search extensions" Margin="0,0,0,6"/>
+                        <TextBox x:Name="SetupExtensionsTextBox" Margin="0,0,0,12"/>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="18"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Smart Search folders" Margin="0,0,0,6"/>
+                                <ListBox x:Name="SetupSmartDirectoriesListBox" MinHeight="130"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <Button Content="Add" Click="OnAddSetupSmartDirectory"/>
+                                    <Button Content="Remove" Margin="8,0,0,0" Click="OnRemoveSetupSmartDirectory"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Categorization folders" Margin="0,0,0,6"/>
+                                <ListBox x:Name="SetupCategorizationDirectoriesListBox" MinHeight="130"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <Button Content="Add" Click="OnAddSetupCategorizationDirectory"/>
+                                    <Button Content="Remove" Margin="8,0,0,0" Click="OnRemoveSetupCategorizationDirectory"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+
+                        <TextBlock x:Name="SetupStatusText" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,16,0,12"/>
+                        <Button Content="Finish Setup" HorizontalAlignment="Right" Click="OnFinishSetup"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Border>
+    </Grid>
+</Window>
